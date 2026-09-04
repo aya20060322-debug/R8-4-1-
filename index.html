@@ -26,7 +26,7 @@ th { height:13mm; padding:2mm 1mm; background:var(--sakura); text-align:center; 
 .period { padding:2mm 1mm; text-align:center; white-space:normal; font-size:12px; line-height:1.5; }
 .period strong { display:block; font-size:14px; }
 .lesson { padding:1.6mm; vertical-align:top; background:white; }
-.subject { display:block; width:100%; min-height:7mm; border:0; background:transparent; font:700 15px inherit; }
+.subject { display:block; width:100%; min-height:7mm; border:0; background:transparent; font:700 17px inherit; }
 .lesson-note { display:block; width:100%; height:25mm; margin-top:1mm; padding:1.5mm; border:1px solid #ddd; border-radius:3px; resize:none; background:white; font:11px/1.4 inherit; }
 .break td { height:10mm; padding:1.5mm; background:#fbecf0; text-align:center; font-size:13px; font-weight:700; }
 .status { width:100%; margin-top:2mm; text-align:right; color:#805765; font-size:11px; }
@@ -139,7 +139,7 @@ async function savePdf(){
       if (source.tagName === "SELECT") {
         div.textContent = source.value;
         div.style.color = colors[source.value] || "#111";
-        div.style.fontSize = "15px";
+        div.style.fontSize = "17px";
         div.style.fontWeight = "700";
         div.style.minHeight = "7mm";
         div.style.padding = "1mm 0";
