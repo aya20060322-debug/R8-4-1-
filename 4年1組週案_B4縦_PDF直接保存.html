@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>4年1組 週案</title>
+<style>
+:root { --sakura:#f6dce2; --sakura-dark:#bd7f8e; --line:#c794a0; }
+* { box-sizing:border-box; }
+html, body { margin:0; padding:0; background:#f8f4f5; color:#222; font-family:"Yu Gothic","Hiragino Kaku Gothic ProN",Meiryo,sans-serif; }
+.toolbar { max-width:980px; margin:12px auto; padding:10px; display:flex; justify-content:center; align-items:center; gap:8px; flex-wrap:wrap; }
+button, input[type="date"] { min-height:40px; padding:8px 13px; border:1px solid var(--line); border-radius:9px; background:white; font:inherit; }
+button { background:var(--sakura); cursor:pointer; font-weight:700; }
+button:hover { filter:brightness(.98); }
+.sheet { width:min(250mm, calc(100vw - 18px)); min-height:353mm; margin:0 auto 18px; padding:9mm 8mm; background:white; box-shadow:0 3px 18px #0002; }
+h1 { margin:0 0 4mm; text-align:center; color:#9d5267; font-size:24px; letter-spacing:.14em; }
+table { width:100%; border-collapse:collapse; table-layout:fixed; }
+col.time { width:15%; }
+col.day { width:17%; }
+th, td { border:1.2px solid var(--line); }
+th { height:13mm; padding:2mm 1mm; background:var(--sakura); text-align:center; font-size:15px; }
+.side { background:#fcf3f5; text-align:center; font-weight:700; }
+.memo-row td { height:35mm; }
+.memo { display:block; width:100%; height:34mm; padding:2mm; border:0; resize:none; background:white; font:12px/1.45 inherit; }
+.period-row td { height:36mm; }
+.period { padding:2mm 1mm; text-align:center; white-space:normal; font-size:12px; line-height:1.5; }
+.period strong { display:block; font-size:14px; }
+.lesson { padding:1.6mm; vertical-align:top; background:white; }
+.subject { display:block; width:100%; min-height:7mm; border:0; background:transparent; font:700 15px inherit; }
+.lesson-note { display:block; width:100%; height:25mm; margin-top:1mm; padding:1.5mm; border:1px solid #ddd; border-radius:3px; resize:none; background:white; font:11px/1.4 inherit; }
+.break td { height:10mm; padding:1.5mm; background:#fbecf0; text-align:center; font-size:13px; font-weight:700; }
+.status { width:100%; margin-top:2mm; text-align:right; color:#805765; font-size:11px; }
+@page { size:B4 portrait; margin:0; }
+@media print {
+  html, body { width:250mm; height:353mm; background:white; }
+  .toolbar { display:none !important; }
+  .sheet { width:250mm; height:353mm; min-height:353mm; margin:0; padding:9mm 8mm; box-shadow:none; overflow:hidden; }
+  .status { display:none; }
+  select { appearance:none; -webkit-appearance:none; }
+  textarea, select { color-adjust:exact; -webkit-print-color-adjust:exact; }
+}
+@media (max-width:700px) {
+  .sheet { width:250mm; transform-origin:top left; }
+  body { overflow-x:auto; }
+}
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <button type="button" onclick="changeWeek(-7)">◀ 前の週</button>
+  <label>月曜日の日付 <input type="date" id="monday"></label>
+  <button type="button" onclick="changeWeek(7)">次の週 ▶</button>
+  <button type="button" onclick="saveTemplate()">時間割を保存</button>
+  <button type="button" onclick="loadTemplate()">時間割を呼び出す</button>
+  <button type="button" onclick="savePdf()">B4縦でPDF保存</button>
+</div>
+
+<main class="sheet" id="sheet">
+  <h1>4年1組　週案</h1>
+  <table aria-label="4年1組の週案">
+    <colgroup><col class="time"><col class="day"><col class="day"><col class="day"><col class="day"><col class="day"></colgroup>
+    <thead><tr><th>校時</th><th id="day0">月</th><th id="day1">火</th><th id="day2">水</th><th id="day3">木</th><th id="day4">金</th></tr></thead>
+    <tbody id="schedule">
+      <tr class="memo-row"><td class="side">メモ</td></tr>
+    </tbody>
+  </table>
+  <div class="status" id="status">B4縦 1ページ用</div>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+const subjects=["国語","算数","理科","社会","図工","総合","体育","書写","図書","特活","道徳","音楽","音楽2","外国語","水泳","委員会","クラブ"];
+const colors={"国語":"#d32f2f","算数":"#1976d2","社会":"#e67e00","体育":"#e83e8c","音楽":"#111","音楽2":"#e67e00","図工":"#7b1fa2","道徳":"#e79ab4","総合":"#248b45","水泳":"#29a9d6","理科":"#111","図書":"#111","書写":"#111","委員会":"#111","クラブ":"#111","特活":"#248b45","外国語":"#1b3578"};
+const periods=[
+  ["1校時","8:45〜9:30"], ["2校時","9:35〜10:20"],
+  ["3校時","10:40〜11:25"], ["4校時","11:30〜12:15"],
+  ["5校時","13:40〜14:25"], ["6校時","14:30〜15:15"]
+];
+const tbody=document.getElementById("schedule");
+const memoRow=tbody.querySelector(".memo-row");
+for(let d=0; d<5; d++) memoRow.insertAdjacentHTML("beforeend",`<td><textarea class="memo" data-kind="memo" data-day="${d}" aria-label="${d+1}日目のメモ"></textarea></td>`);
+function lessonCell(period,day){
+  const options=subjects.map(s=>`<option value="${s}">${s}</option>`).join("");
+  return `<td class="lesson"><select class="subject" data-kind="subject" data-period="${period}" data-day="${day}" onchange="applyColor(this)">${options}</select><textarea class="lesson-note" data-kind="note" data-period="${period}" data-day="${day}" placeholder="授業内容"></textarea></td>`;
+}
+periods.forEach((p,i)=>{
+  if(i===2) tbody.insertAdjacentHTML("beforeend",'<tr class="break"><td colspan="6">中休み</td></tr>');
+  if(i===4) tbody.insertAdjacentHTML("beforeend",'<tr class="break"><td colspan="6">昼休み</td></tr>');
+  let cells=""; for(let d=0;d<5;d++) cells+=lessonCell(i,d);
+  tbody.insertAdjacentHTML("beforeend",`<tr class="period-row"><td class="side period"><strong>${p[0]}</strong>${p[1]}</td>${cells}</tr>`);
+});
+function applyColor(el){ el.style.color=colors[el.value] || "#111"; el.parentElement.style.background="white"; }
+document.querySelectorAll(".subject").forEach(applyColor);
+const monday=document.getElementById("monday");
+function localDate(value){ const [y,m,d]=value.split("-").map(Number); return new Date(y,m-1,d); }
+function formatInput(date){ return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`; }
+function updateDates(){
+  if(!monday.value) return;
+  const base=localDate(monday.value), names=["月","火","水","木","金"];
+  names.forEach((name,i)=>{ const d=new Date(base); d.setDate(base.getDate()+i); document.getElementById(`day${i}`).textContent=`${name}　${d.getMonth()+1}/${d.getDate()}`; });
+}
+function changeWeek(days){ if(!monday.value) return; const d=localDate(monday.value); d.setDate(d.getDate()+days); monday.value=formatInput(d); updateDates(); }
+monday.addEventListener("change",updateDates);
+function saveTemplate(){
+  const values=[...document.querySelectorAll(".subject")].map(el=>el.value);
+  localStorage.setItem("grade4class1_timetable",JSON.stringify(values));
+  document.getElementById("status").textContent="時間割を保存しました";
+}
+function loadTemplate(){
+  const values=JSON.parse(localStorage.getItem("grade4class1_timetable")||"null");
+  if(!values){ document.getElementById("status").textContent="保存済みの時間割がありません"; return; }
+  document.querySelectorAll(".subject").forEach((el,i)=>{ if(values[i]) el.value=values[i]; applyColor(el); });
+  document.getElementById("status").textContent="時間割を呼び出しました";
+}
+async function savePdf(){
+  const button = document.querySelector('button[onclick="savePdf()"]');
+  const oldText = button.textContent;
+  button.disabled = true;
+  button.textContent = "PDF作成中…";
+  const status = document.getElementById("status");
+  status.textContent = "B4縦PDFを作成しています";
+
+  try {
+    if (!window.html2canvas || !window.jspdf) {
+      throw new Error("PDF作成ライブラリを読み込めませんでした。インターネット接続を確認してください。");
+    }
+
+    const original = document.getElementById("sheet");
+    const clone = original.cloneNode(true);
+    clone.id = "pdf-sheet";
+    clone.querySelectorAll(".status").forEach(el => el.remove());
+
+    // PDFでは入力部品を通常の文字に置き換え、教科名と記入内容を確実に表示する
+    const originalFields = original.querySelectorAll("select, textarea");
+    const cloneFields = clone.querySelectorAll("select, textarea");
+    cloneFields.forEach((field, index) => {
+      const source = originalFields[index];
+      const div = document.createElement("div");
+      if (source.tagName === "SELECT") {
+        div.textContent = source.value;
+        div.style.color = colors[source.value] || "#111";
+        div.style.fontSize = "15px";
+        div.style.fontWeight = "700";
+        div.style.minHeight = "7mm";
+        div.style.padding = "1mm 0";
+      } else {
+        div.textContent = source.value || "";
+        div.style.whiteSpace = "pre-wrap";
+        div.style.overflowWrap = "anywhere";
+        div.style.fontSize = source.classList.contains("memo") ? "12px" : "11px";
+        div.style.lineHeight = "1.4";
+        div.style.padding = source.classList.contains("memo") ? "2mm" : "1.5mm";
+        div.style.height = source.classList.contains("memo") ? "34mm" : "25mm";
+        if (source.classList.contains("lesson-note")) {
+          div.style.border = "1px solid #ddd";
+          div.style.borderRadius = "3px";
+          div.style.marginTop = "1mm";
+        }
+      }
+      field.replaceWith(div);
+    });
+
+    clone.style.position = "fixed";
+    clone.style.left = "-10000px";
+    clone.style.top = "0";
+    clone.style.width = "250mm";
+    clone.style.height = "353mm";
+    clone.style.minHeight = "353mm";
+    clone.style.margin = "0";
+    clone.style.padding = "9mm 8mm";
+    clone.style.boxShadow = "none";
+    clone.style.overflow = "hidden";
+    clone.style.background = "#fff";
+    document.body.appendChild(clone);
+
+    const canvas = await html2canvas(clone, {
+      scale: 2,
+      backgroundColor: "#ffffff",
+      useCORS: true,
+      logging: false,
+      width: clone.scrollWidth,
+      height: clone.scrollHeight,
+      windowWidth: clone.scrollWidth,
+      windowHeight: clone.scrollHeight
+    });
+    clone.remove();
+
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: [250, 353],
+      compress: true
+    });
+    const image = canvas.toDataURL("image/jpeg", 0.94);
+    pdf.addImage(image, "JPEG", 0, 0, 250, 353, undefined, "FAST");
+    const datePart = monday.value || "日付未設定";
+    pdf.save(`4年1組_週案_${datePart}.pdf`);
+    status.textContent = "B4縦1ページのPDFを保存しました";
+  } catch (error) {
+    console.error(error);
+    status.textContent = error.message;
+    alert(error.message);
+  } finally {
+    button.disabled = false;
+    button.textContent = oldText;
+  }
+}
+</script>
+</body>
+</html>
